@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal
 
 from requests import Session
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     SolArkDeviceCount,
@@ -49,17 +52,25 @@ class SolArkClient:
         self.session = session or Session()
         self.token: SolArkToken | None = None
 
+    def __enter__(self) -> SolArkClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.session.close()
+
     def _headers(self) -> dict[str, str]:
         if not self.token:
             raise ValueError("Not authenticated. Call login() first.")
         return {"Authorization": f"Bearer {self.token.access_token}", "Accept": "application/json"}
 
     def _request(self, method: str, path: str, **kwargs: Any):
+        logger.debug("%s %s", method, path)
         response = self.session.request(method, f"{self.api_root}{path}", timeout=self.timeout, **kwargs)
         response.raise_for_status()
         return response
 
     def login(self) -> SolArkToken:
+        logger.debug("POST /oauth/token user=%s", self.username)
         response = self._request(
             "POST",
             "/oauth/token",
@@ -70,6 +81,7 @@ class SolArkClient:
             },
         )
         self.token = parse_token_response(response.json())
+        logger.debug("login successful expires_in=%s", self.token.expires_in)
         return self.token
 
     def get_current_user(self) -> SolArkUser:
@@ -99,13 +111,22 @@ class SolArkClient:
         return parse_generation_use_response(self.raw_get(f"/api/v1/plant/energy/{plant_id}/generation/use"))
 
     def get_plant_contacts(self, plant_id: int) -> SolArkPlantContacts:
+        logger.debug("POST /api/v1/plant/%s/contacts", plant_id)
         response = self._request(
             "POST",
             f"/api/v1/plant/{plant_id}/contacts",
             headers=self._headers(),
             json={"id": plant_id},
         )
-        return parse_plant_contacts_response(response.json())
+        payload = response.json()
+        code = payload.get("code", 0)
+        if code != 0:
+            from .exceptions import SolArkAPIError
+            raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
+        return parse_plant_contacts_response(payload)
+
+    def list_plants(self) -> list[SolArkPlantMapPoint]:
+        return parse_plants_map_response(self.raw_get("/api/v1/plants/map"))
 
     def get_plants_map(self) -> list[SolArkPlantMapPoint]:
         return parse_plants_map_response(self.raw_get("/api/v1/plants/map"))
@@ -138,6 +159,5 @@ class SolArkClient:
         code = payload.get("code", 0)
         if code != 0:
             from .exceptions import SolArkAPIError
-
             raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
         return payload

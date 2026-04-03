@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
 from .exceptions import SolArkAPIError
+
+logger = logging.getLogger(__name__)
 from .models import (
     SolArkChargeWindow,
     SolArkCurrency,
@@ -27,14 +30,21 @@ from .models import (
 def _parse_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
-
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        logger.warning("Could not parse datetime value: %r", value)
+        return None
 
 
 def _parse_float(value: Any) -> float | None:
     if value in (None, "", "null"):
         return None
-    return float(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        logger.warning("Could not parse float value: %r", value)
+        return None
 
 
 
