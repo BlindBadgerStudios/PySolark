@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from requests import Session
+
+from .models import SolArkEnergyFlow, SolArkGenerationUse, SolArkPlant, SolArkRealtime, SolArkSeriesCollection, SolArkToken, SolArkUser
+from .parsing import (
+    parse_energy_flow_response,
+    parse_generation_use_response,
+    parse_plant_power_response,
+    parse_plant_response,
+    parse_realtime_response,
+    parse_token_response,
+    parse_user_response,
+)
+
+
+class SolArkClient:
+    api_root = "https://api.solarkcloud.com"
+
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        *,
+        session: Session | None = None,
+        timeout: int = 30,
+    ) -> None:
+        self.username = username
+        self.password = password
+        self.timeout = timeout
+        self.session = session or Session()
+        self.token: SolArkToken | None = None
+
+    def _headers(self) -> dict[str, str]:
+        if not self.token:
+            raise ValueError("Not authenticated. Call login() first.")
+        return {"Authorization": f"Bearer {self.token.access_token}", "Accept": "application/json"}
+
+    def _request(self, method: str, path: str, **kwargs: Any):
+        response = self.session.request(method, f"{self.api_root}{path}", timeout=self.timeout, **kwargs)
+        response.raise_for_status()
+        return response
+
+    def login(self) -> SolArkToken:
+        response = self._request(
+            "POST",
+            "/oauth/token",
+            json={
+                "grant_type": "password",
+                "username": self.username,
+                "password": self.password,
+            },
+        )
+        self.token = parse_token_response(response.json())
+        return self.token
+
+    def get_current_user(self) -> SolArkUser:
+        return parse_user_response(self.raw_get("/api/v1/user"))
+
+    def get_plant(self, plant_id: int) -> SolArkPlant:
+        return parse_plant_response(self.raw_get(f"/api/v1/plant/{plant_id}"))
+
+    def get_plant_realtime(self, plant_id: int) -> SolArkRealtime:
+        return parse_realtime_response(self.raw_get(f"/api/v1/plant/{plant_id}/realtime"))
+
+    def get_plant_power(self, plant_id: int, *, period: Literal["day", "month", "year", "total"], date: str | None = None) -> SolArkSeriesCollection:
+        params = {"date": date} if date is not None else None
+        return parse_plant_power_response(self.raw_get(f"/api/v1/plant/{plant_id}/power/{period}", params=params))
+
+    def get_plant_energy(self, plant_id: int, *, period: Literal["day", "month", "year", "total"], date: str | None = None) -> SolArkSeriesCollection:
+        params = {"date": date} if date is not None else None
+        return parse_plant_power_response(
+            self.raw_get(f"/api/v1/plant/energy/{plant_id}/{period}", params=params),
+            collection_key="infos",
+        )
+
+    def get_plant_energy_flow(self, plant_id: int) -> SolArkEnergyFlow:
+        return parse_energy_flow_response(self.raw_get(f"/api/v1/plant/energy/{plant_id}/flow"))
+
+    def get_plant_generation_use(self, plant_id: int) -> SolArkGenerationUse:
+        return parse_generation_use_response(self.raw_get(f"/api/v1/plant/energy/{plant_id}/generation/use"))
+
+    def download_plant_energy_aggregate(self, plant_ids: list[int], *, start_date: str, end_date: str) -> str:
+        response = self._request(
+            "GET",
+            "/api/v1/plant/energy/aggregate",
+            headers=self._headers(),
+            params={
+                "plantIds": ",".join(str(plant_id) for plant_id in plant_ids),
+                "startDate": start_date,
+                "endDate": end_date,
+            },
+        )
+        return response.text
+
+    def raw_get(self, path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        response = self._request("GET", path, headers=self._headers(), params=params)
+        payload = response.json()
+        code = payload.get("code", 0)
+        if code != 0:
+            from .exceptions import SolArkAPIError
+
+            raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
+        return payload
