@@ -3,157 +3,27 @@ import pytest
 from pysolark.client import SolArkClient
 from pysolark.exceptions import SolArkAPIError
 
-TEST_USER_ID = 10101
-TEST_PLANT_ID = 424242
-TEST_USERNAME = "operator@example.com"
-TEST_PASSWORD = "secret"
-TEST_PLANT_NAME = "Example Plant"
-
-TOKEN_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {
-        "access_token": "access-123",
-        "refresh_token": "refresh-456",
-        "expires_in": 7200,
-        "scope": "all",
-        "token_type": "Bearer",
-    },
-    "success": True,
-}
-
-USER_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {"id": TEST_USER_ID, "nickname": TEST_USERNAME, "createAt": "2024-08-30T09:14:01Z"},
-    "success": True,
-}
-
-PLANT_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {
-        "id": TEST_PLANT_ID,
-        "name": TEST_PLANT_NAME,
-        "currency": {"id": 251, "code": "USD", "text": "$"},
-        "timezone": {"id": 327, "code": "America/Los_Angeles", "text": "Pacific"},
-        "charges": [],
-        "realtime": {
-            "pac": 8701,
-            "etoday": 13.7,
-            "emonth": 75.1,
-            "eyear": 4064.5,
-            "etotal": 42781.9,
-            "income": 2.1,
-            "efficiency": 39.7,
-            "updateAt": "2026-04-03T16:37:01Z",
-            "currency": {"id": 251, "code": "USD", "text": "$"},
-            "totalPower": 21.90,
-        },
-    },
-    "success": True,
-}
-
-REALTIME_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {
-        "pac": 8701,
-        "etoday": 13.7,
-        "emonth": 75.1,
-        "eyear": 4064.5,
-        "etotal": 42781.9,
-        "income": 2.1,
-        "efficiency": 39.7,
-        "updateAt": "2026-04-03T16:37:01Z",
-        "currency": {"id": 251, "code": "USD", "text": "$"},
-        "totalPower": 21.90,
-    },
-    "success": True,
-}
-
-POWER_DAY_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {
-        "unit": "W",
-        "records": [
-            {"time": "00:00", "value": "0.0", "updateTime": None},
-            {"time": "00:05", "value": "10.5", "updateTime": None},
-        ],
-    },
-    "success": True,
-}
-
-ENERGY_MONTH_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {
-        "infos": [
-            {"label": "Load", "unit": "kWh", "records": [{"time": "2026-04-01", "value": "71.1", "updateTime": None}]},
-            {"label": "PV", "unit": "kWh", "records": [{"time": "2026-04-01", "value": "32.1", "updateTime": None}]},
-        ]
-    },
-    "success": True,
-}
-
-FLOW_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {
-        "pvPower": 9974,
-        "battPower": 64,
-        "gridOrMeterPower": 7905,
-        "loadOrEpsPower": 1653,
-        "soc": 100.0,
-        "toGrid": True,
-        "toLoad": True,
-        "toBat": True,
-    },
-    "success": True,
-}
-
-USE_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {"load": 5.9, "pv": 13.8, "batteryCharge": 0.2, "gridSell": 7.7},
-    "success": True,
-}
-
-CONTACTS_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {
-        "id": TEST_PLANT_ID,
-        "name": None,
-        "updateAt": "2026-04-03T16:51:16.646+00:00",
-    },
-    "success": True,
-}
-
-PLANTS_MAP_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": [{"id": TEST_PLANT_ID, "lon": -122.4194, "lat": 37.7749, "status": 1}],
-    "success": True,
-}
-
-VERSION_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {"version": ""},
-    "success": True,
-}
-
-COUNT_JSON = {
-    "code": 0,
-    "msg": "Success",
-    "data": {"warning": 0, "fault": 0, "updateAt": "2026-04-03T16:39:49Z", "total": 0, "normal": 0, "offline": 0},
-    "success": True,
-}
-
-ERROR_JSON = {"code": 2, "msg": "No Permissions", "success": False}
-CSV_TEXT = f"Station Name,Load(kWh)\\n{TEST_PLANT_NAME},250.30\\n"
+from .fixtures import (
+    CONTACTS_JSON,
+    COUNT_JSON,
+    ENERGY_MONTH_JSON,
+    ERROR_JSON,
+    FLOW_JSON,
+    PLANT_JSON,
+    PLANTS_MAP_JSON,
+    POWER_DAY_JSON,
+    REALTIME_JSON,
+    TOKEN_JSON,
+    USE_JSON,
+    USER_JSON,
+    VERSION_JSON,
+    CSV_TEXT,
+    TEST_PLANT_ID,
+    TEST_PLANT_NAME,
+    TEST_USERNAME,
+    TEST_PASSWORD,
+    TEST_USER_ID,
+)
 
 
 class FakeResponse:
@@ -266,11 +136,35 @@ def test_client_login_and_validated_queries():
         "password": TEST_PASSWORD,
     }
 
-    realtime_call = [call for call in session.calls if call[1].endswith(f"/api/v1/plant/{TEST_PLANT_ID}/realtime")][0]
+    realtime_call = [c for c in session.calls if c[1].endswith(f"/api/v1/plant/{TEST_PLANT_ID}/realtime")][0]
     assert realtime_call[2]["headers"]["Authorization"] == "Bearer access-123"
 
-    power_call = [call for call in session.calls if call[1].endswith("/power/day")][0]
+    power_call = [c for c in session.calls if c[1].endswith("/power/day")][0]
     assert power_call[2]["params"] == {"date": "2026-04-03"}
+
+
+def test_list_plants_returns_map_points():
+    session = FakeSession()
+    client = SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session)
+    client.login()
+
+    plants = client.list_plants()
+    assert len(plants) == 1
+    assert plants[0].plant_id == TEST_PLANT_ID
+
+
+def test_context_manager_closes_session():
+    closed = []
+
+    class TrackingSession(FakeSession):
+        def close(self):
+            closed.append(True)
+
+    with SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=TrackingSession()) as client:
+        client.login()
+        assert client.token is not None
+
+    assert closed == [True]
 
 
 def test_raw_get_allows_exploration_of_undocumented_endpoints():
