@@ -114,6 +114,38 @@ USE_JSON = {
     "success": True,
 }
 
+CONTACTS_JSON = {
+    "code": 0,
+    "msg": "Success",
+    "data": {
+        "id": 424242,
+        "name": None,
+        "updateAt": "2026-04-03T16:51:16.646+00:00",
+    },
+    "success": True,
+}
+
+PLANTS_MAP_JSON = {
+    "code": 0,
+    "msg": "Success",
+    "data": [{"id": 424242, "lon": -122.4194, "lat": 37.7749, "status": 1}],
+    "success": True,
+}
+
+VERSION_JSON = {
+    "code": 0,
+    "msg": "Success",
+    "data": {"version": ""},
+    "success": True,
+}
+
+COUNT_JSON = {
+    "code": 0,
+    "msg": "Success",
+    "data": {"warning": 0, "fault": 0, "updateAt": "2026-04-03T16:39:49Z", "total": 0, "normal": 0, "offline": 0},
+    "success": True,
+}
+
 ERROR_JSON = {"code": 2, "msg": "No Permissions", "success": False}
 CSV_TEXT = "Station Name,Load(kWh)\nExample Plant,250.30\n"
 
@@ -159,6 +191,16 @@ class FakeSession:
             return FakeResponse(json_data=USE_JSON)
         if url.endswith("/api/v1/plant/energy/aggregate"):
             return FakeResponse(text=CSV_TEXT, headers={"content-type": "text/plain; charset=UTF-8"})
+        if url.endswith("/api/v1/plant/424242/contacts"):
+            return FakeResponse(json_data=CONTACTS_JSON)
+        if url.endswith("/api/v1/plants/map"):
+            return FakeResponse(json_data=PLANTS_MAP_JSON)
+        if url.endswith("/api/v1/version/latest"):
+            return FakeResponse(json_data=VERSION_JSON)
+        if url.endswith("/api/v1/batteries/count"):
+            return FakeResponse(json_data=COUNT_JSON)
+        if url.endswith("/api/v1/inverters/count"):
+            return FakeResponse(json_data=COUNT_JSON)
         if url.endswith("/api/v1/inverter"):
             return FakeResponse(json_data=ERROR_JSON)
         raise AssertionError(f"Unexpected request: {method} {url}")
@@ -195,6 +237,20 @@ def test_client_login_and_validated_queries():
 
     report = client.download_plant_energy_aggregate([424242], start_date="2026-04-01", end_date="2026-04-03")
     assert "Example Plant" in report
+
+    contacts = client.get_plant_contacts(424242)
+    assert contacts.plant_id == 424242
+
+    plants_map = client.get_plants_map()
+    assert plants_map[0].plant_id == 424242
+
+    latest_version = client.get_latest_version()
+    assert latest_version.version == ""
+
+    battery_count = client.get_batteries_count()
+    inverter_count = client.get_inverters_count()
+    assert battery_count.total == 0
+    assert inverter_count.updated_at is not None
 
     login_call = session.calls[0]
     assert login_call[0] == "POST"

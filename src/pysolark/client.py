@@ -4,15 +4,31 @@ from typing import Any, Literal
 
 from requests import Session
 
-from .models import SolArkEnergyFlow, SolArkGenerationUse, SolArkPlant, SolArkRealtime, SolArkSeriesCollection, SolArkToken, SolArkUser
+from .models import (
+    SolArkDeviceCount,
+    SolArkEnergyFlow,
+    SolArkGenerationUse,
+    SolArkPlant,
+    SolArkPlantContacts,
+    SolArkPlantMapPoint,
+    SolArkRealtime,
+    SolArkSeriesCollection,
+    SolArkToken,
+    SolArkUser,
+    SolArkVersionInfo,
+)
 from .parsing import (
+    parse_device_count_response,
     parse_energy_flow_response,
     parse_generation_use_response,
+    parse_plant_contacts_response,
     parse_plant_power_response,
     parse_plant_response,
+    parse_plants_map_response,
     parse_realtime_response,
     parse_token_response,
     parse_user_response,
+    parse_version_response,
 )
 
 
@@ -81,6 +97,27 @@ class SolArkClient:
 
     def get_plant_generation_use(self, plant_id: int) -> SolArkGenerationUse:
         return parse_generation_use_response(self.raw_get(f"/api/v1/plant/energy/{plant_id}/generation/use"))
+
+    def get_plant_contacts(self, plant_id: int) -> SolArkPlantContacts:
+        response = self._request(
+            "POST",
+            f"/api/v1/plant/{plant_id}/contacts",
+            headers=self._headers(),
+            json={"id": plant_id},
+        )
+        return parse_plant_contacts_response(response.json())
+
+    def get_plants_map(self) -> list[SolArkPlantMapPoint]:
+        return parse_plants_map_response(self.raw_get("/api/v1/plants/map"))
+
+    def get_latest_version(self) -> SolArkVersionInfo:
+        return parse_version_response(self.raw_get("/api/v1/version/latest"))
+
+    def get_batteries_count(self) -> SolArkDeviceCount:
+        return parse_device_count_response(self.raw_get("/api/v1/batteries/count"))
+
+    def get_inverters_count(self) -> SolArkDeviceCount:
+        return parse_device_count_response(self.raw_get("/api/v1/inverters/count"))
 
     def download_plant_energy_aggregate(self, plant_ids: list[int], *, start_date: str, end_date: str) -> str:
         response = self._request(

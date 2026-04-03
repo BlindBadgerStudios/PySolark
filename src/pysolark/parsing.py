@@ -7,9 +7,12 @@ from .exceptions import SolArkAPIError
 from .models import (
     SolArkChargeWindow,
     SolArkCurrency,
+    SolArkDeviceCount,
     SolArkEnergyFlow,
     SolArkGenerationUse,
     SolArkPlant,
+    SolArkPlantContacts,
+    SolArkPlantMapPoint,
     SolArkPoint,
     SolArkRealtime,
     SolArkSeries,
@@ -17,6 +20,7 @@ from .models import (
     SolArkTimezone,
     SolArkToken,
     SolArkUser,
+    SolArkVersionInfo,
 )
 
 
@@ -210,5 +214,51 @@ def parse_generation_use_response(payload: dict[str, Any]) -> SolArkGenerationUs
         pv=_parse_float(data.get("pv")),
         battery_charge=_parse_float(data.get("batteryCharge")),
         grid_sell=_parse_float(data.get("gridSell")),
+        raw=payload,
+    )
+
+
+
+def parse_plant_contacts_response(payload: dict[str, Any]) -> SolArkPlantContacts:
+    data = _unwrap(payload)
+    return SolArkPlantContacts(
+        plant_id=data["id"],
+        name=data.get("name"),
+        updated_at=_parse_datetime(data.get("updateAt")),
+        raw=payload,
+    )
+
+
+
+def parse_plants_map_response(payload: dict[str, Any]) -> list[SolArkPlantMapPoint]:
+    data = _unwrap(payload).get("items", [])
+    return [
+        SolArkPlantMapPoint(
+            plant_id=item["id"],
+            longitude=_parse_float(item.get("lon")),
+            latitude=_parse_float(item.get("lat")),
+            status=item.get("status"),
+            raw=item,
+        )
+        for item in data
+    ]
+
+
+
+def parse_version_response(payload: dict[str, Any]) -> SolArkVersionInfo:
+    data = _unwrap(payload)
+    return SolArkVersionInfo(version=data.get("version"), raw=payload)
+
+
+
+def parse_device_count_response(payload: dict[str, Any]) -> SolArkDeviceCount:
+    data = _unwrap(payload)
+    return SolArkDeviceCount(
+        total=data.get("total"),
+        normal=data.get("normal"),
+        warning=data.get("warning"),
+        fault=data.get("fault"),
+        offline=data.get("offline"),
+        updated_at=_parse_datetime(data.get("updateAt")),
         raw=payload,
     )

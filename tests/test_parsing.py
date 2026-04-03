@@ -4,13 +4,17 @@ import pytest
 
 from pysolark.exceptions import SolArkAPIError
 from pysolark.parsing import (
+    parse_device_count_response,
     parse_energy_flow_response,
     parse_generation_use_response,
+    parse_plant_contacts_response,
     parse_plant_power_response,
     parse_plant_response,
+    parse_plants_map_response,
     parse_realtime_response,
     parse_token_response,
     parse_user_response,
+    parse_version_response,
 )
 
 TOKEN_JSON = {
@@ -202,6 +206,34 @@ GENERATION_USE_JSON = {
     "success": True,
 }
 
+CONTACTS_JSON = {
+    "code": 0,
+    "msg": "Success",
+    "data": {"id": 424242, "name": None, "updateAt": "2026-04-03T16:51:16.646+00:00"},
+    "success": True,
+}
+
+PLANTS_MAP_JSON = {
+    "code": 0,
+    "msg": "Success",
+    "data": [{"id": 424242, "lon": -122.4194, "lat": 37.7749, "status": 1}],
+    "success": True,
+}
+
+VERSION_JSON = {
+    "code": 0,
+    "msg": "Success",
+    "data": {"version": ""},
+    "success": True,
+}
+
+COUNT_JSON = {
+    "code": 0,
+    "msg": "Success",
+    "data": {"warning": 0, "fault": 0, "updateAt": "2026-04-03T16:39:49Z", "total": 0, "normal": 0, "offline": 0},
+    "success": True,
+}
+
 ERROR_JSON = {"code": 2, "msg": "No Permissions", "success": False}
 
 
@@ -243,6 +275,19 @@ def test_parse_power_energy_flow_and_generation_use():
     usage = parse_generation_use_response(GENERATION_USE_JSON)
     assert usage.load == 5.9
     assert usage.grid_sell == 7.7
+
+    contacts = parse_plant_contacts_response(CONTACTS_JSON)
+    assert contacts.plant_id == 424242
+
+    plants_map = parse_plants_map_response(PLANTS_MAP_JSON)
+    assert plants_map[0].latitude == 37.7749
+
+    version = parse_version_response(VERSION_JSON)
+    assert version.version == ""
+
+    count = parse_device_count_response(COUNT_JSON)
+    assert count.total == 0
+    assert count.updated_at == datetime.fromisoformat("2026-04-03T16:39:49+00:00")
 
 
 def test_nonzero_code_raises_api_error():

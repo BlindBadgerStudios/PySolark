@@ -14,6 +14,11 @@ Validated API areas in this first cut:
 - `GET /api/v1/plant/energy/{id}/flow`
 - `GET /api/v1/plant/energy/{id}/generation/use`
 - `GET /api/v1/plant/energy/aggregate`
+- `POST /api/v1/plant/{id}/contacts`
+- `GET /api/v1/plants/map`
+- `GET /api/v1/version/latest`
+- `GET /api/v1/batteries/count`
+- `GET /api/v1/inverters/count`
 
 Additionally, the library exposes `raw_get()` so we can continue exploring undocumented endpoints safely while still surfacing Sol-Ark envelope errors as `SolArkAPIError`.
 
@@ -37,6 +42,11 @@ power = client.get_plant_power(424242, period="day", date="2026-04-03")
 energy = client.get_plant_energy(424242, period="month", date="2026-04")
 flow = client.get_plant_energy_flow(424242)
 usage = client.get_plant_generation_use(424242)
+contacts = client.get_plant_contacts(424242)
+plants_map = client.get_plants_map()
+latest_version = client.get_latest_version()
+battery_count = client.get_batteries_count()
+inverter_count = client.get_inverters_count()
 report = client.download_plant_energy_aggregate([424242], start_date="2026-04-01", end_date="2026-04-03")
 
 print(plant.name)
@@ -45,8 +55,20 @@ print(power.records[0].value)
 print(energy.series[0].label)
 print(flow.soc)
 print(usage.grid_sell)
+print(contacts.updated_at)
+print(plants_map[0].plant_id if plants_map else None)
+print(latest_version.version)
+print(battery_count.total, inverter_count.total)
 print(report[:120])
 ```
+
+## Live smoke check
+
+```bash
+SOLARK_ENV_FILE=/path/to/solark-cloud.env ./examples/live_authenticated_smoke.sh
+```
+
+Expected output is JSON summarizing a real authenticated pass across the currently validated endpoints.
 
 ## Notes
 

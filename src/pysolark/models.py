@@ -141,3 +141,37 @@ class SolArkGenerationUse:
     battery_charge: float | None
     grid_sell: float | None
     raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SolArkPlantContacts:
+    plant_id: int
+    name: str | None
+    updated_at: datetime | None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SolArkPlantMapPoint:
+    plant_id: int
+    longitude: float | None
+    latitude: float | None
+    status: int | None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SolArkVersionInfo:
+    version: str | None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SolArkDeviceCount:
+    total: int | None
+    normal: int | None
+    warning: int | None
+    fault: int | None
+    offline: int | None
+    updated_at: datetime | None
+    raw: dict[str, Any] = field(default_factory=dict)
