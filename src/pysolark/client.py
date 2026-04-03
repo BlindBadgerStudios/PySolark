@@ -5,8 +5,6 @@ from typing import Any, Literal
 
 from requests import Session
 
-logger = logging.getLogger(__name__)
-
 from .models import (
     SolArkDeviceCount,
     SolArkEnergyFlow,
@@ -33,6 +31,8 @@ from .parsing import (
     parse_user_response,
     parse_version_response,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SolArkClient:

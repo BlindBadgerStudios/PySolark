@@ -5,8 +5,6 @@ from datetime import datetime
 from typing import Any
 
 from .exceptions import SolArkAPIError
-
-logger = logging.getLogger(__name__)
 from .models import (
     SolArkChargeWindow,
     SolArkCurrency,
@@ -25,6 +23,8 @@ from .models import (
     SolArkUser,
     SolArkVersionInfo,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
