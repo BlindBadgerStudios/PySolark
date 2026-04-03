@@ -47,6 +47,9 @@ class FakeSession:
     def __init__(self):
         self.calls = []
 
+    def close(self):
+        pass
+
     def request(self, method, url, **kwargs):
         self.calls.append((method, url, kwargs))
         if url.endswith("/oauth/token"):
