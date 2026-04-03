@@ -3,6 +3,12 @@ import pytest
 from pysolark.client import SolArkClient
 from pysolark.exceptions import SolArkAPIError
 
+TEST_USER_ID = 10101
+TEST_PLANT_ID = 424242
+TEST_USERNAME = "operator@example.com"
+TEST_PASSWORD = "secret"
+TEST_PLANT_NAME = "Example Plant"
+
 TOKEN_JSON = {
     "code": 0,
     "msg": "Success",
@@ -19,7 +25,7 @@ TOKEN_JSON = {
 USER_JSON = {
     "code": 0,
     "msg": "Success",
-    "data": {"id": 10101, "nickname": "user@example.com", "createAt": "2024-08-30T09:14:01Z"},
+    "data": {"id": TEST_USER_ID, "nickname": TEST_USERNAME, "createAt": "2024-08-30T09:14:01Z"},
     "success": True,
 }
 
@@ -27,8 +33,8 @@ PLANT_JSON = {
     "code": 0,
     "msg": "Success",
     "data": {
-        "id": 424242,
-        "name": "Example Plant",
+        "id": TEST_PLANT_ID,
+        "name": TEST_PLANT_NAME,
         "currency": {"id": 251, "code": "USD", "text": "$"},
         "timezone": {"id": 327, "code": "America/Los_Angeles", "text": "Pacific"},
         "charges": [],
@@ -118,7 +124,7 @@ CONTACTS_JSON = {
     "code": 0,
     "msg": "Success",
     "data": {
-        "id": 424242,
+        "id": TEST_PLANT_ID,
         "name": None,
         "updateAt": "2026-04-03T16:51:16.646+00:00",
     },
@@ -128,7 +134,7 @@ CONTACTS_JSON = {
 PLANTS_MAP_JSON = {
     "code": 0,
     "msg": "Success",
-    "data": [{"id": 424242, "lon": -122.4194, "lat": 37.7749, "status": 1}],
+    "data": [{"id": TEST_PLANT_ID, "lon": -122.4194, "lat": 37.7749, "status": 1}],
     "success": True,
 }
 
@@ -147,7 +153,7 @@ COUNT_JSON = {
 }
 
 ERROR_JSON = {"code": 2, "msg": "No Permissions", "success": False}
-CSV_TEXT = "Station Name,Load(kWh)\nExample Plant,250.30\n"
+CSV_TEXT = f"Station Name,Load(kWh)\\n{TEST_PLANT_NAME},250.30\\n"
 
 
 class FakeResponse:
@@ -177,21 +183,21 @@ class FakeSession:
             return FakeResponse(json_data=TOKEN_JSON)
         if url.endswith("/api/v1/user"):
             return FakeResponse(json_data=USER_JSON)
-        if url.endswith("/api/v1/plant/424242"):
+        if url.endswith(f"/api/v1/plant/{TEST_PLANT_ID}"):
             return FakeResponse(json_data=PLANT_JSON)
-        if url.endswith("/api/v1/plant/424242/realtime"):
+        if url.endswith(f"/api/v1/plant/{TEST_PLANT_ID}/realtime"):
             return FakeResponse(json_data=REALTIME_JSON)
-        if url.endswith("/api/v1/plant/424242/power/day"):
+        if url.endswith(f"/api/v1/plant/{TEST_PLANT_ID}/power/day"):
             return FakeResponse(json_data=POWER_DAY_JSON)
-        if url.endswith("/api/v1/plant/energy/424242/month"):
+        if url.endswith(f"/api/v1/plant/energy/{TEST_PLANT_ID}/month"):
             return FakeResponse(json_data=ENERGY_MONTH_JSON)
-        if url.endswith("/api/v1/plant/energy/424242/flow"):
+        if url.endswith(f"/api/v1/plant/energy/{TEST_PLANT_ID}/flow"):
             return FakeResponse(json_data=FLOW_JSON)
-        if url.endswith("/api/v1/plant/energy/424242/generation/use"):
+        if url.endswith(f"/api/v1/plant/energy/{TEST_PLANT_ID}/generation/use"):
             return FakeResponse(json_data=USE_JSON)
         if url.endswith("/api/v1/plant/energy/aggregate"):
             return FakeResponse(text=CSV_TEXT, headers={"content-type": "text/plain; charset=UTF-8"})
-        if url.endswith("/api/v1/plant/424242/contacts"):
+        if url.endswith(f"/api/v1/plant/{TEST_PLANT_ID}/contacts"):
             return FakeResponse(json_data=CONTACTS_JSON)
         if url.endswith("/api/v1/plants/map"):
             return FakeResponse(json_data=PLANTS_MAP_JSON)
@@ -206,43 +212,42 @@ class FakeSession:
         raise AssertionError(f"Unexpected request: {method} {url}")
 
 
-
 def test_client_login_and_validated_queries():
     session = FakeSession()
-    client = SolArkClient(username="user@example.com", password="secret", session=session)
+    client = SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session)
 
     token = client.login()
     assert token.access_token == "access-123"
 
     user = client.get_current_user()
-    assert user.user_id == 10101
+    assert user.user_id == TEST_USER_ID
 
-    plant = client.get_plant(424242)
-    assert plant.name == "Example Plant"
+    plant = client.get_plant(TEST_PLANT_ID)
+    assert plant.name == TEST_PLANT_NAME
 
-    realtime = client.get_plant_realtime(424242)
+    realtime = client.get_plant_realtime(TEST_PLANT_ID)
     assert realtime.pac == 8701
 
-    power = client.get_plant_power(424242, period="day", date="2026-04-03")
+    power = client.get_plant_power(TEST_PLANT_ID, period="day", date="2026-04-03")
     assert power.records[1].value == 10.5
 
-    energy = client.get_plant_energy(424242, period="month", date="2026-04")
+    energy = client.get_plant_energy(TEST_PLANT_ID, period="month", date="2026-04")
     assert energy.series[0].label == "Load"
 
-    flow = client.get_plant_energy_flow(424242)
+    flow = client.get_plant_energy_flow(TEST_PLANT_ID)
     assert flow.to_grid is True
 
-    usage = client.get_plant_generation_use(424242)
+    usage = client.get_plant_generation_use(TEST_PLANT_ID)
     assert usage.pv == 13.8
 
-    report = client.download_plant_energy_aggregate([424242], start_date="2026-04-01", end_date="2026-04-03")
-    assert "Example Plant" in report
+    report = client.download_plant_energy_aggregate([TEST_PLANT_ID], start_date="2026-04-01", end_date="2026-04-03")
+    assert TEST_PLANT_NAME in report
 
-    contacts = client.get_plant_contacts(424242)
-    assert contacts.plant_id == 424242
+    contacts = client.get_plant_contacts(TEST_PLANT_ID)
+    assert contacts.plant_id == TEST_PLANT_ID
 
     plants_map = client.get_plants_map()
-    assert plants_map[0].plant_id == 424242
+    assert plants_map[0].plant_id == TEST_PLANT_ID
 
     latest_version = client.get_latest_version()
     assert latest_version.version == ""
@@ -257,11 +262,11 @@ def test_client_login_and_validated_queries():
     assert login_call[1].endswith("/oauth/token")
     assert login_call[2]["json"] == {
         "grant_type": "password",
-        "username": "user@example.com",
-        "password": "secret",
+        "username": TEST_USERNAME,
+        "password": TEST_PASSWORD,
     }
 
-    realtime_call = [call for call in session.calls if call[1].endswith("/api/v1/plant/424242/realtime")][0]
+    realtime_call = [call for call in session.calls if call[1].endswith(f"/api/v1/plant/{TEST_PLANT_ID}/realtime")][0]
     assert realtime_call[2]["headers"]["Authorization"] == "Bearer access-123"
 
     power_call = [call for call in session.calls if call[1].endswith("/power/day")][0]
@@ -270,7 +275,7 @@ def test_client_login_and_validated_queries():
 
 def test_raw_get_allows_exploration_of_undocumented_endpoints():
     session = FakeSession()
-    client = SolArkClient(username="user@example.com", password="secret", session=session)
+    client = SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session)
     client.login()
 
     with pytest.raises(SolArkAPIError):

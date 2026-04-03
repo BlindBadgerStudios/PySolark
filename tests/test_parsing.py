@@ -17,6 +17,11 @@ from pysolark.parsing import (
     parse_version_response,
 )
 
+TEST_USER_ID = 10101
+TEST_PLANT_ID = 424242
+TEST_USERNAME = "operator@example.com"
+TEST_PLANT_NAME = "Example Plant"
+
 TOKEN_JSON = {
     "code": 0,
     "msg": "Success",
@@ -34,16 +39,16 @@ USER_JSON = {
     "code": 0,
     "msg": "Success",
     "data": {
-        "id": 10101,
-        "nickname": "user@example.com",
-        "avatar": "https://mysolark.s3.us-west-2.amazonaws.com/avatar/user1.png",
+        "id": TEST_USER_ID,
+        "nickname": TEST_USERNAME,
+        "avatar": "https://example.invalid/avatar.png",
         "gender": 0,
         "mobile": "555-0100",
         "createAt": "2024-08-30T09:14:01Z",
         "type": None,
         "tempUnit": "℉",
         "company": None,
-        "userSrc": "elinter",
+        "userSrc": "example-source",
         "companyName": None,
         "companyRole": None,
     },
@@ -54,10 +59,10 @@ PLANT_JSON = {
     "code": 0,
     "msg": "Success",
     "data": {
-        "id": 424242,
-        "name": "Example Plant",
+        "id": TEST_PLANT_ID,
+        "name": TEST_PLANT_NAME,
         "totalPower": 21.90,
-        "thumbUrl": "https://mysolark.s3.us-west-2.amazonaws.com/plant/example.png",
+        "thumbUrl": "https://example.invalid/plant.png",
         "joinDate": "2024-08-28T00:00:00Z",
         "type": 2,
         "status": 1,
@@ -68,7 +73,7 @@ PLANT_JSON = {
                 "endRange": "23:59",
                 "price": 0.15,
                 "type": 1,
-                "stationId": 424242,
+                "stationId": TEST_PLANT_ID,
                 "createAt": "2025-02-05T13:45:09Z",
             }
         ],
@@ -78,7 +83,7 @@ PLANT_JSON = {
         "address": "123 Example Ave",
         "master": {
             "id": 125645,
-            "nickname": "installer@example.com",
+            "nickname": "installer@vendor.example",
             "mobile": None,
         },
         "currency": {"id": 251, "code": "USD", "text": "$"},
@@ -209,14 +214,14 @@ GENERATION_USE_JSON = {
 CONTACTS_JSON = {
     "code": 0,
     "msg": "Success",
-    "data": {"id": 424242, "name": None, "updateAt": "2026-04-03T16:51:16.646+00:00"},
+    "data": {"id": TEST_PLANT_ID, "name": None, "updateAt": "2026-04-03T16:51:16.646+00:00"},
     "success": True,
 }
 
 PLANTS_MAP_JSON = {
     "code": 0,
     "msg": "Success",
-    "data": [{"id": 424242, "lon": -122.4194, "lat": 37.7749, "status": 1}],
+    "data": [{"id": TEST_PLANT_ID, "lon": -122.4194, "lat": 37.7749, "status": 1}],
     "success": True,
 }
 
@@ -243,11 +248,11 @@ def test_parse_token_user_plant_and_realtime():
     assert token.token_type == "Bearer"
 
     user = parse_user_response(USER_JSON)
-    assert user.user_id == 10101
+    assert user.user_id == TEST_USER_ID
     assert user.created_at == datetime.fromisoformat("2024-08-30T09:14:01+00:00")
 
     plant = parse_plant_response(PLANT_JSON)
-    assert plant.plant_id == 424242
+    assert plant.plant_id == TEST_PLANT_ID
     assert plant.currency.code == "USD"
     assert plant.realtime.pac == 8701
     assert plant.charges[0].price == 0.15
@@ -277,7 +282,7 @@ def test_parse_power_energy_flow_and_generation_use():
     assert usage.grid_sell == 7.7
 
     contacts = parse_plant_contacts_response(CONTACTS_JSON)
-    assert contacts.plant_id == 424242
+    assert contacts.plant_id == TEST_PLANT_ID
 
     plants_map = parse_plants_map_response(PLANTS_MAP_JSON)
     assert plants_map[0].latitude == 37.7749
