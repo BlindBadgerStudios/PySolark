@@ -2,7 +2,7 @@
 
 pysolark is a Python client for the Sol-Ark Cloud API.
 
-This library is intentionally validation-first and currently optimized for near-real-time visibility. Sol-Ark publishes very little public API documentation, so the current framework focuses on endpoints confirmed by direct login tests against `https://api.solarkcloud.com` and by inspecting the `mysolark.com` frontend bundle.
+This library is intentionally validation-first and currently optimized for near-real-time visibility (for time-series systems like Prometheus). Sol-Ark publishes very little public API documentation, so the current framework focuses on endpoints confirmed by direct login tests against `https://api.solarkcloud.com` and by inspecting the `mysolark.com` frontend bundle.
 
 Validated API areas in the current near-real-time-focused cut:
 - `POST /oauth/token`
