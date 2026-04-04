@@ -4,3 +4,25 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+# Secrets / env
+.env
+.env.*
+*.env
+*.secrets
+secrets/
+*.pem
+*.key
+*.p12
+*.crt
+
+# Local overrides
+*.local
+config.local.*
+.devcontainer/
+.idea/
+.vscode/settings.json
+
+# Output / logs
+*.log
+coverage.xml
+htmlcov/
