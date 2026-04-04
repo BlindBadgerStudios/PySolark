@@ -22,7 +22,7 @@ Additionally, the library exposes `raw_get()` so we can continue exploring undoc
 ## Install
 
 ```bash
-pip install -e .
+pip install pysolark
 ```
 
 ## Quick start
