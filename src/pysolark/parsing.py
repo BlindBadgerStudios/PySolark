@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .exceptions import SolArkAPIError
@@ -92,12 +92,19 @@ def _parse_point(payload: dict[str, Any]) -> SolArkPoint:
 
 def parse_token_response(payload: dict[str, Any]) -> SolArkToken:
     data = _unwrap(payload)
+    expires_in = data.get("expires_in")
+    expires_at = (
+        datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        if expires_in is not None
+        else None
+    )
     return SolArkToken(
         access_token=data["access_token"],
         refresh_token=data.get("refresh_token"),
-        expires_in=data.get("expires_in"),
+        expires_in=expires_in,
         scope=data.get("scope"),
         token_type=data.get("token_type"),
+        expires_at=expires_at,
         raw=payload,
     )
 
@@ -212,6 +219,14 @@ def parse_energy_flow_response(payload: dict[str, Any]) -> SolArkEnergyFlow:
         to_battery=data.get("toBat"),
         from_battery=data.get("batTo"),
         from_grid=data.get("gridTo"),
+        generator_to=data.get("genTo"),
+        exists_generator=data.get("existsGen"),
+        exists_microinverter=data.get("existsMin"),
+        generator_on=data.get("genOn"),
+        microinverter_on=data.get("microOn"),
+        exists_meter=data.get("existsMeter"),
+        meter_code=data.get("meterCode"),
+        bms_comm_fault=data.get("bmsCommFaultFlag"),
         raw=payload,
     )
 

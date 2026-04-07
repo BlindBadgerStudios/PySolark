@@ -7,3 +7,8 @@ class SolArkAPIError(RuntimeError):
         self.message = message
         self.payload = payload or {}
         super().__init__(f"Sol-Ark API error {code}: {message}")
+
+
+class SolArkTokenExpiredError(SolArkAPIError):
+    def __init__(self) -> None:
+        super().__init__(401, "Access token has expired. Call login() to re-authenticate.")

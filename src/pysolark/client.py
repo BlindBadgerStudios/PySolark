@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from requests import Session
 
+from .exceptions import SolArkTokenExpiredError
 from .models import (
     SolArkDeviceCount,
     SolArkEnergyFlow,
@@ -61,6 +63,8 @@ class SolArkClient:
     def _headers(self) -> dict[str, str]:
         if not self.token:
             raise ValueError("Not authenticated. Call login() first.")
+        if self.token.expires_at and datetime.now(timezone.utc) >= self.token.expires_at:
+            raise SolArkTokenExpiredError()
         return {"Authorization": f"Bearer {self.token.access_token}", "Accept": "application/json"}
 
     def _request(self, method: str, path: str, **kwargs: Any):

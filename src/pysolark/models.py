@@ -12,6 +12,7 @@ class SolArkToken:
     expires_in: int | None
     scope: str | None
     token_type: str | None
+    expires_at: datetime | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -131,6 +132,14 @@ class SolArkEnergyFlow:
     to_battery: bool | None
     from_battery: bool | None
     from_grid: bool | None
+    generator_to: bool | None
+    exists_generator: bool | None
+    exists_microinverter: bool | None
+    generator_on: bool | None
+    microinverter_on: bool | None
+    exists_meter: bool | None
+    meter_code: int | None
+    bms_comm_fault: bool | None
     raw: dict[str, Any] = field(default_factory=dict)
 
 

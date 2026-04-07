@@ -1,5 +1,5 @@
 from .client import SolArkClient
-from .exceptions import SolArkAPIError
+from .exceptions import SolArkAPIError, SolArkTokenExpiredError
 from .models import (
     SolArkDeviceCount,
     SolArkEnergyFlow,
@@ -16,6 +16,7 @@ from .models import (
 
 __all__ = [
     "SolArkAPIError",
+    "SolArkTokenExpiredError",
     "SolArkClient",
     "SolArkDeviceCount",
     "SolArkEnergyFlow",
