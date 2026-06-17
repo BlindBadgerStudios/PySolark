@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Literal
 
 from requests import Session
@@ -35,6 +35,15 @@ from .parsing import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _default_date(period: str) -> str:
+    today = date.today()
+    if period == "day":
+        return today.isoformat()          # "2026-06-17"
+    if period == "month":
+        return today.strftime("%Y-%m")    # "2026-06"
+    return str(today.year)               # "2026" for year/total
 
 
 class SolArkClient:
@@ -98,13 +107,13 @@ class SolArkClient:
         return parse_realtime_response(self.raw_get(f"/api/v1/plant/{plant_id}/realtime"))
 
     def get_plant_power(self, plant_id: int, *, period: Literal["day", "month", "year", "total"], date: str | None = None) -> SolArkSeriesCollection:
-        params = {"date": date} if date is not None else None
-        return parse_plant_power_response(self.raw_get(f"/api/v1/plant/{plant_id}/power/{period}", params=params))
+        resolved = date or _default_date(period)
+        return parse_plant_power_response(self.raw_get(f"/api/v1/plant/{plant_id}/power/{period}", params={"date": resolved}))
 
     def get_plant_energy(self, plant_id: int, *, period: Literal["day", "month", "year", "total"], date: str | None = None) -> SolArkSeriesCollection:
-        params = {"date": date} if date is not None else None
+        resolved = date or _default_date(period)
         return parse_plant_power_response(
-            self.raw_get(f"/api/v1/plant/energy/{plant_id}/{period}", params=params),
+            self.raw_get(f"/api/v1/plant/energy/{plant_id}/{period}", params={"date": resolved}),
             collection_key="infos",
         )
 

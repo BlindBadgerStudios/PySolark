@@ -30,10 +30,6 @@ class FakeClient:
         self.calls.append(("get_plants_map", None))
         return [type("Point", (), {"plant_id": TEST_PLANT_ID, "status": 1})()]
 
-    def get_plant_contacts(self, plant_id: int):
-        self.calls.append(("get_plant_contacts", plant_id))
-        return type("Contacts", (), {"plant_id": plant_id, "updated_at": "2026-04-03T16:51:16.646+00:00"})()
-
     def get_latest_version(self):
         self.calls.append(("get_latest_version", None))
         return type("Version", (), {"version": ""})()
@@ -66,7 +62,6 @@ def test_run_smoke_checks_returns_summary_for_validated_endpoints():
         ("get_plant_realtime", TEST_PLANT_ID),
         ("get_plant_energy_flow", TEST_PLANT_ID),
         ("get_plants_map", None),
-        ("get_plant_contacts", TEST_PLANT_ID),
         ("get_latest_version", None),
         ("get_batteries_count", None),
         ("get_inverters_count", None),
