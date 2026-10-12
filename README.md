@@ -95,3 +95,12 @@ python -m twine check dist/*
 - Keep the client centered on near-real-time plant, flow, battery, and device-status visibility
 - Add convenience helpers for exporter-friendly near-real-time telemetry shaping
 - Revisit historical/day-month-year data pulls later, after the near-real-time surface is stable
+
+## Secret scanning
+
+This repo uses a [gitleaks](https://github.com/gitleaks/gitleaks) pre-commit hook. After cloning, run:
+
+```sh
+pip install pre-commit  # or: uv tool install pre-commit
+pre-commit install
+```
