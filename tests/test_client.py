@@ -6,6 +6,7 @@ from pysolark.exceptions import SolArkAPIError
 from .fixtures import (
     CONTACTS_JSON,
     COUNT_JSON,
+    CSV_TEXT,
     ENERGY_MONTH_JSON,
     ERROR_JSON,
     FLOW_JSON,
@@ -13,16 +14,15 @@ from .fixtures import (
     PLANTS_MAP_JSON,
     POWER_DAY_JSON,
     REALTIME_JSON,
+    TEST_PASSWORD,
+    TEST_PLANT_ID,
+    TEST_PLANT_NAME,
+    TEST_USER_ID,
+    TEST_USERNAME,
     TOKEN_JSON,
     USE_JSON,
     USER_JSON,
     VERSION_JSON,
-    CSV_TEXT,
-    TEST_PLANT_ID,
-    TEST_PLANT_NAME,
-    TEST_USERNAME,
-    TEST_PASSWORD,
-    TEST_USER_ID,
 )
 
 
@@ -139,10 +139,10 @@ def test_client_login_and_validated_queries():
         "password": TEST_PASSWORD,
     }
 
-    realtime_call = [c for c in session.calls if c[1].endswith(f"/api/v1/plant/{TEST_PLANT_ID}/realtime")][0]
+    realtime_call = next(c for c in session.calls if c[1].endswith(f"/api/v1/plant/{TEST_PLANT_ID}/realtime"))
     assert realtime_call[2]["headers"]["Authorization"] == "Bearer access-123"
 
-    power_call = [c for c in session.calls if c[1].endswith("/power/day")][0]
+    power_call = next(c for c in session.calls if c[1].endswith("/power/day"))
     assert power_call[2]["params"] == {"date": "2026-04-03"}
 
 
@@ -177,3 +177,191 @@ def test_raw_get_allows_exploration_of_undocumented_endpoints():
 
     with pytest.raises(SolArkAPIError):
         client.raw_get("/api/v1/inverter")
+
+
+def test_token_and_client_repr_redact_secrets():
+    session = FakeSession()
+    client = SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session)
+    token = client.login()
+
+    assert token.access_token not in repr(token)
+    assert token.refresh_token not in repr(token)
+    assert "raw=" not in repr(token)
+    assert TEST_PASSWORD not in repr(client)
+    assert token.access_token not in repr(client)
+    assert not hasattr(client, "password")
+
+
+class _SingleResponseSession(FakeSession):
+    def __init__(self, response):
+        super().__init__()
+        self.response = response
+
+    def request(self, method, url, **kwargs):
+        if url.endswith("/oauth/token"):
+            return super().request(method, url, **kwargs)
+        self.calls.append((method, url, kwargs))
+        return self.response
+
+
+def test_aggregate_download_raises_on_error_envelope():
+    session = _SingleResponseSession(
+        FakeResponse(json_data=ERROR_JSON, text='{"code": 2}', headers={"content-type": "application/json"})
+    )
+    client = SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session)
+    client.login()
+    with pytest.raises(SolArkAPIError):
+        client.download_plant_energy_aggregate([TEST_PLANT_ID], start_date="2026-04-01", end_date="2026-04-03")
+
+
+def test_raw_get_rejects_non_dict_payload():
+    session = _SingleResponseSession(FakeResponse(json_data=["not", "a", "dict"]))
+    client = SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session)
+    client.login()
+    with pytest.raises(SolArkAPIError):
+        client.raw_get("/api/v1/user")
+
+
+class _ScriptedSession(FakeSession):
+    """Returns queued responses (or raises queued exceptions) in order."""
+
+    def __init__(self, responses):
+        super().__init__()
+        self.responses = list(responses)
+
+    def request(self, method, url, **kwargs):
+        self.calls.append((method, url, kwargs))
+        item = self.responses.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+def _client(session, sleeps):
+    return SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session, sleep=sleeps.append)
+
+
+def test_login_post_is_never_retried():
+    sleeps = []
+    session = _ScriptedSession([FakeResponse(status_code=503), FakeResponse(json_data=TOKEN_JSON)])
+    client = _client(session, sleeps)
+    with pytest.raises(RuntimeError):
+        client.login()
+    assert len(session.calls) == 1
+    assert sleeps == []
+
+
+def test_get_retries_429_honouring_retry_after():
+    sleeps = []
+    session = _ScriptedSession(
+        [
+            FakeResponse(json_data=TOKEN_JSON),
+            FakeResponse(status_code=429, headers={"Retry-After": "7"}),
+            FakeResponse(status_code=502),
+            FakeResponse(json_data=USER_JSON),
+        ]
+    )
+    client = _client(session, sleeps)
+    client.login()
+    user = client.get_current_user()
+    assert user.user_id == TEST_USER_ID
+    assert sleeps == [7.0, 2.0]
+
+
+def test_get_retries_connection_errors_then_gives_up():
+    import requests
+
+    sleeps = []
+    session = _ScriptedSession(
+        [FakeResponse(json_data=TOKEN_JSON)] + [requests.ConnectionError("boom") for _ in range(4)]
+    )
+    client = _client(session, sleeps)
+    client.login()
+    with pytest.raises(requests.ConnectionError):
+        client.get_current_user()
+    assert sleeps == [1.0, 2.0, 4.0]
+
+
+def test_get_does_not_retry_client_errors():
+    sleeps = []
+    session = _ScriptedSession([FakeResponse(json_data=TOKEN_JSON), FakeResponse(status_code=404)])
+    client = _client(session, sleeps)
+    client.login()
+    with pytest.raises(RuntimeError):
+        client.get_current_user()
+    assert sleeps == []
+
+
+def test_envelope_auth_error_in_http_200_raises_auth_error():
+    from pysolark import SolArkAuthError
+
+    sleeps = []
+    session = _ScriptedSession(
+        [FakeResponse(json_data=TOKEN_JSON), FakeResponse(json_data={"code": 401, "msg": "token invalid"})]
+    )
+    client = _client(session, sleeps)
+    client.login()
+    with pytest.raises(SolArkAuthError):
+        client.get_current_user()
+
+
+def test_non_auth_envelope_error_is_plain_api_error():
+    from pysolark import SolArkAuthError
+
+    session = _ScriptedSession([FakeResponse(json_data=TOKEN_JSON), FakeResponse(json_data=ERROR_JSON)])
+    client = _client(session, [])
+    client.login()
+    with pytest.raises(SolArkAPIError) as excinfo:
+        client.get_current_user()
+    assert not isinstance(excinfo.value, SolArkAuthError)
+
+
+def test_login_envelope_failure_raises_auth_error():
+    from pysolark import SolArkAuthError
+
+    session = _ScriptedSession([FakeResponse(json_data={"code": 102, "msg": "Bad credentials"})])
+    client = _client(session, [])
+    with pytest.raises(SolArkAuthError):
+        client.login()
+    assert client.token is None
+
+
+def test_renew_uses_refresh_token_first():
+    refreshed = {"code": 0, "data": {"access_token": "access-new", "expires_in": 3600}}
+    session = _ScriptedSession([FakeResponse(json_data=TOKEN_JSON), FakeResponse(json_data=refreshed)])
+    client = _client(session, [])
+    old_refresh = client.login().refresh_token
+    token = client.renew()
+    assert token.access_token == "access-new"
+    assert token.refresh_token == old_refresh
+    assert session.calls[1][2]["json"] == {"grant_type": "refresh_token", "refresh_token": old_refresh}
+    assert len(session.calls) == 2
+
+
+def test_renew_falls_back_to_password_login_when_refresh_fails():
+    session = _ScriptedSession(
+        [
+            FakeResponse(json_data=TOKEN_JSON),
+            FakeResponse(json_data={"code": 401, "msg": "invalid refresh token"}),
+            FakeResponse(json_data=TOKEN_JSON),
+        ]
+    )
+    client = _client(session, [])
+    client.login()
+    client.renew()
+    assert [call[2]["json"]["grant_type"] for call in session.calls] == ["password", "refresh_token", "password"]
+
+
+def test_renew_without_token_does_password_login():
+    session = _ScriptedSession([FakeResponse(json_data=TOKEN_JSON)])
+    client = _client(session, [])
+    client.renew()
+    assert session.calls[0][2]["json"]["grant_type"] == "password"
+
+
+def test_is_auth_envelope_heuristics():
+    from pysolark.client import is_auth_envelope
+
+    assert is_auth_envelope(401, "whatever")
+    assert is_auth_envelope(5, "Access token expired")
+    assert not is_auth_envelope(2, "No Permissions")

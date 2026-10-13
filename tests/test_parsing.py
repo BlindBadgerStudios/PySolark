@@ -27,12 +27,12 @@ from .fixtures import (
     PLANT_POWER_JSON,
     PLANTS_MAP_JSON,
     REALTIME_JSON,
+    TEST_PLANT_ID,
+    TEST_USER_ID,
     TOKEN_JSON,
     USE_JSON,
     USER_JSON,
     VERSION_JSON,
-    TEST_PLANT_ID,
-    TEST_USER_ID,
 )
 
 
@@ -114,3 +114,19 @@ def test_parse_float_tolerates_bad_values():
     assert _parse_float({"unexpected": "dict"}) is None
     assert _parse_float([1, 2]) is None
     assert _parse_float("42.5") == 42.5
+
+
+def test_token_expires_in_is_coerced_to_int():
+    from pysolark.parsing import parse_token_response
+
+    token = parse_token_response({"code": 0, "data": {"access_token": "a", "expires_in": "3600"}})
+    assert token.expires_in == 3600
+    assert token.expires_at is not None
+
+
+def test_token_invalid_expires_in_is_ignored():
+    from pysolark.parsing import parse_token_response
+
+    token = parse_token_response({"code": 0, "data": {"access_token": "a", "expires_in": "soon"}})
+    assert token.expires_in is None
+    assert token.expires_at is None

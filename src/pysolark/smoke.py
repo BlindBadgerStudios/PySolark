@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 
-
 def run_smoke_checks(client: Any, *, plant_id: int) -> dict[str, Any]:
     user = client.get_current_user()
     plant = client.get_plant(plant_id)

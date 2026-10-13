@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 
-
 def load_env_file(path: Path) -> None:
     for raw_line in path.read_text().splitlines():
         line = raw_line.strip()

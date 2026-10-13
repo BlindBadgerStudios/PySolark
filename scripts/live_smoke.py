@@ -9,7 +9,6 @@ from pysolark.env import load_env_file
 from pysolark.smoke import run_smoke_checks
 
 
-
 def main() -> None:
     env_path = os.environ.get("SOLARK_ENV_FILE")
     if env_path:
