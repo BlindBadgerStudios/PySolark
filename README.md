@@ -69,6 +69,16 @@ Observed authentication behavior:
 - the API returns a JSON envelope with `code`, `msg`, `data`, and often `success`
 - nonzero `code` values should be treated as API-level failures even when the HTTP status is `200`
 
+Session handling (0.2.2+):
+- `renew()` tries `grant_type=refresh_token` first and falls back to a password `login()`. The refresh grant is
+  not documented by Sol-Ark (third-party clients use it against the same endpoint) and has not been verified
+  live by this project, which is why the password fallback exists
+- `POST /oauth/token` is never retried automatically; only GETs are retried (429/502/503/504 and connection
+  errors, exponential backoff, `Retry-After` honored)
+- envelope errors that look like auth failures (code 401/403 or a token/login message) raise `SolArkAuthError`,
+  a subclass of `SolArkAPIError`
+- token values are excluded from `repr()`; the password is stored privately
+
 Observed documentation gap:
 - some endpoints referenced by the frontend still returned `400`, `404`, or `No Permissions` during exploration
 - this repo should expand only as additional endpoints are actually validated against live responses
