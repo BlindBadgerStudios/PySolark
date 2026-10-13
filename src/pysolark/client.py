@@ -6,7 +6,7 @@ from typing import Any, Literal, Self
 
 from requests import Session
 
-from .exceptions import SolArkTokenExpiredError
+from .exceptions import SolArkAPIError, SolArkTokenExpiredError
 from .models import (
     SolArkDeviceCount,
     SolArkEnergyFlow,
@@ -44,6 +44,16 @@ def _default_date(period: str) -> str:
     if period == "month":
         return today.strftime("%Y-%m")  # "2026-06"
     return str(today.year)  # "2026" for year/total
+
+
+def _check_envelope(payload: Any) -> dict[str, Any]:
+    """Raise SolArkAPIError for non-dict payloads or a non-zero envelope ``code``."""
+    if not isinstance(payload, dict):
+        raise SolArkAPIError(-1, f"Unexpected response payload type: {type(payload).__name__}")
+    code = payload.get("code", 0)
+    if code != 0:
+        raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
+    return payload
 
 
 class SolArkClient:
@@ -141,12 +151,7 @@ class SolArkClient:
             headers=self._headers(),
             json={"id": plant_id},
         )
-        payload = response.json()
-        code = payload.get("code", 0)
-        if code != 0:
-            from .exceptions import SolArkAPIError
-
-            raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
+        payload = _check_envelope(response.json())
         return parse_plant_contacts_response(payload)
 
     def list_plants(self) -> list[SolArkPlantMapPoint]:
@@ -175,14 +180,18 @@ class SolArkClient:
                 "endDate": end_date,
             },
         )
+        content_type = response.headers.get("content-type", "")
+        if "json" in content_type or response.text.lstrip().startswith("{"):
+            # The CSV endpoint reports failures as a JSON envelope, not as CSV text.
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
+            if payload is not None:
+                _check_envelope(payload)
+                raise SolArkAPIError(-1, "Expected CSV from aggregate download but got JSON", payload)
         return response.text
 
     def raw_get(self, path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
         response = self._request("GET", path, headers=self._headers(), params=params)
-        payload = response.json()
-        code = payload.get("code", 0)
-        if code != 0:
-            from .exceptions import SolArkAPIError
-
-            raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
-        return payload
+        return _check_envelope(response.json())

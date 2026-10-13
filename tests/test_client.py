@@ -190,3 +190,33 @@ def test_token_and_client_repr_redact_secrets():
     assert TEST_PASSWORD not in repr(client)
     assert token.access_token not in repr(client)
     assert not hasattr(client, "password")
+
+
+class _SingleResponseSession(FakeSession):
+    def __init__(self, response):
+        super().__init__()
+        self.response = response
+
+    def request(self, method, url, **kwargs):
+        if url.endswith("/oauth/token"):
+            return super().request(method, url, **kwargs)
+        self.calls.append((method, url, kwargs))
+        return self.response
+
+
+def test_aggregate_download_raises_on_error_envelope():
+    session = _SingleResponseSession(
+        FakeResponse(json_data=ERROR_JSON, text='{"code": 2}', headers={"content-type": "application/json"})
+    )
+    client = SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session)
+    client.login()
+    with pytest.raises(SolArkAPIError):
+        client.download_plant_energy_aggregate([TEST_PLANT_ID], start_date="2026-04-01", end_date="2026-04-03")
+
+
+def test_raw_get_rejects_non_dict_payload():
+    session = _SingleResponseSession(FakeResponse(json_data=["not", "a", "dict"]))
+    client = SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session)
+    client.login()
+    with pytest.raises(SolArkAPIError):
+        client.raw_get("/api/v1/user")

@@ -85,9 +85,20 @@ def _parse_point(payload: dict[str, Any]) -> SolArkPoint:
     )
 
 
+def _parse_expires_in(value: Any) -> int | None:
+    """Coerce ``expires_in`` to int; the API has been seen to send numbers or strings."""
+    if value in (None, ""):
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        logger.warning("Could not parse expires_in value: %r", value)
+        return None
+
+
 def parse_token_response(payload: dict[str, Any]) -> SolArkToken:
     data = _unwrap(payload)
-    expires_in = data.get("expires_in")
+    expires_in = _parse_expires_in(data.get("expires_in"))
     expires_at = datetime.now(UTC) + timedelta(seconds=expires_in) if expires_in is not None else None
     return SolArkToken(
         access_token=data["access_token"],
