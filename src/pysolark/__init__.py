@@ -16,7 +16,6 @@ from .models import (
 
 __all__ = [
     "SolArkAPIError",
-    "SolArkTokenExpiredError",
     "SolArkClient",
     "SolArkDeviceCount",
     "SolArkEnergyFlow",
@@ -27,6 +26,7 @@ __all__ = [
     "SolArkRealtime",
     "SolArkSeriesCollection",
     "SolArkToken",
+    "SolArkTokenExpiredError",
     "SolArkUser",
     "SolArkVersionInfo",
 ]

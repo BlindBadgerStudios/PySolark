@@ -1,6 +1,5 @@
 from pysolark import SolArkClient
 
-
 client = SolArkClient(username="you@example.com", password="***")
 client.login()
 
