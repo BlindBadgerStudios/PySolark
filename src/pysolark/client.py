@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime
@@ -8,7 +9,7 @@ from typing import Any, Literal, Self
 
 from requests import RequestException, Session
 
-from .exceptions import SolArkAPIError, SolArkTokenExpiredError
+from .exceptions import SolArkAPIError, SolArkAuthError, SolArkTokenExpiredError
 from .models import (
     SolArkDeviceCount,
     SolArkEnergyFlow,
@@ -51,13 +52,34 @@ def _default_date(period: str) -> str:
 RETRYABLE_STATUS = frozenset({429, 502, 503, 504})
 
 
+# Sol-Ark does not document its envelope error codes. These are heuristics for auth failures
+# that come back as HTTP 200 with a non-zero ``code``.
+AUTH_ERROR_CODES = frozenset({401, 403})
+_AUTH_MESSAGE_RE = re.compile(
+    r"token|unauthori[sz]ed|not logged in|login (?:expired|required)|re-?login", re.IGNORECASE
+)
+
+
+def is_auth_envelope(code: Any, message: Any) -> bool:
+    """Return True when an envelope error looks like an authentication failure."""
+    try:
+        if int(code) in AUTH_ERROR_CODES:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return bool(message) and bool(_AUTH_MESSAGE_RE.search(str(message)))
+
+
 def _check_envelope(payload: Any) -> dict[str, Any]:
-    """Raise SolArkAPIError for non-dict payloads or a non-zero envelope ``code``."""
+    """Raise SolArkAPIError (or SolArkAuthError) for non-dict payloads or a non-zero envelope ``code``."""
     if not isinstance(payload, dict):
         raise SolArkAPIError(-1, f"Unexpected response payload type: {type(payload).__name__}")
     code = payload.get("code", 0)
     if code != 0:
-        raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
+        message = payload.get("msg", "Unknown error")
+        if is_auth_envelope(code, message):
+            raise SolArkAuthError(code, message, payload)
+        raise SolArkAPIError(code, message, payload)
     return payload
 
 
@@ -140,20 +162,57 @@ class SolArkClient:
             self._sleep(delay)
             attempt += 1
 
+    def _token_request(self, body: dict[str, Any]) -> SolArkToken:
+        # Never retried (see _request): a retried token POST can create extra sessions.
+        response = self._request("POST", "/oauth/token", json=body)
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise SolArkAuthError(-1, "Token endpoint returned a non-JSON response") from exc
+        if not isinstance(payload, dict) or payload.get("code", 0) != 0:
+            code = payload.get("code", -1) if isinstance(payload, dict) else -1
+            message = payload.get("msg", "Unknown error") if isinstance(payload, dict) else "Unexpected payload"
+            raise SolArkAuthError(code, message)
+        return parse_token_response(payload)
+
     def login(self) -> SolArkToken:
-        logger.debug("POST /oauth/token user=%s", self.username)
-        response = self._request(
-            "POST",
-            "/oauth/token",
-            json={
+        """Full password login. Prefer ``renew()`` once a token exists."""
+        logger.debug("POST /oauth/token grant_type=password")
+        self.token = self._token_request(
+            {
                 "grant_type": "password",
                 "username": self.username,
                 "password": self._password,
-            },
+            }
         )
-        self.token = parse_token_response(response.json())
         logger.debug("login successful expires_in=%s", self.token.expires_in)
         return self.token
+
+    def refresh(self) -> SolArkToken:
+        """Exchange the stored refresh token for a new access token.
+
+        Sol-Ark does not document this grant. It follows the standard OAuth2 ``refresh_token``
+        grant that third-party Sol-Ark clients use against the same endpoint.
+        """
+        if self.token is None or not self.token.refresh_token:
+            raise SolArkAuthError(-1, "No refresh token available")
+        logger.debug("POST /oauth/token grant_type=refresh_token")
+        old_refresh = self.token.refresh_token
+        token = self._token_request({"grant_type": "refresh_token", "refresh_token": old_refresh})
+        if not token.refresh_token:
+            token.refresh_token = old_refresh
+        self.token = token
+        logger.debug("refresh successful expires_in=%s", self.token.expires_in)
+        return self.token
+
+    def renew(self) -> SolArkToken:
+        """Renew the session: try the refresh token first, then fall back to a password login."""
+        if self.token is not None and self.token.refresh_token:
+            try:
+                return self.refresh()
+            except (SolArkAPIError, RequestException) as exc:
+                logger.info("Token refresh failed (%s); falling back to password login", type(exc).__name__)
+        return self.login()
 
     def get_current_user(self) -> SolArkUser:
         return parse_user_response(self.raw_get("/api/v1/user"))
