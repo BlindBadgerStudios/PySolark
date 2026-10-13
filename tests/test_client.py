@@ -6,6 +6,7 @@ from pysolark.exceptions import SolArkAPIError
 from .fixtures import (
     CONTACTS_JSON,
     COUNT_JSON,
+    CSV_TEXT,
     ENERGY_MONTH_JSON,
     ERROR_JSON,
     FLOW_JSON,
@@ -13,16 +14,15 @@ from .fixtures import (
     PLANTS_MAP_JSON,
     POWER_DAY_JSON,
     REALTIME_JSON,
+    TEST_PASSWORD,
+    TEST_PLANT_ID,
+    TEST_PLANT_NAME,
+    TEST_USER_ID,
+    TEST_USERNAME,
     TOKEN_JSON,
     USE_JSON,
     USER_JSON,
     VERSION_JSON,
-    CSV_TEXT,
-    TEST_PLANT_ID,
-    TEST_PLANT_NAME,
-    TEST_USERNAME,
-    TEST_PASSWORD,
-    TEST_USER_ID,
 )
 
 
@@ -139,10 +139,10 @@ def test_client_login_and_validated_queries():
         "password": TEST_PASSWORD,
     }
 
-    realtime_call = [c for c in session.calls if c[1].endswith(f"/api/v1/plant/{TEST_PLANT_ID}/realtime")][0]
+    realtime_call = next(c for c in session.calls if c[1].endswith(f"/api/v1/plant/{TEST_PLANT_ID}/realtime"))
     assert realtime_call[2]["headers"]["Authorization"] == "Bearer access-123"
 
-    power_call = [c for c in session.calls if c[1].endswith("/power/day")][0]
+    power_call = next(c for c in session.calls if c[1].endswith("/power/day"))
     assert power_call[2]["params"] == {"date": "2026-04-03"}
 
 

@@ -27,12 +27,12 @@ from .fixtures import (
     PLANT_POWER_JSON,
     PLANTS_MAP_JSON,
     REALTIME_JSON,
+    TEST_PLANT_ID,
+    TEST_USER_ID,
     TOKEN_JSON,
     USE_JSON,
     USER_JSON,
     VERSION_JSON,
-    TEST_PLANT_ID,
-    TEST_USER_ID,
 )
 
 
