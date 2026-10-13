@@ -47,14 +47,12 @@ def _parse_float(value: Any) -> float | None:
         return None
 
 
-
 def _unwrap(payload: dict[str, Any]) -> dict[str, Any]:
     code = payload.get("code", 0)
     if code != 0:
         raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
     data = payload.get("data")
     return data if isinstance(data, dict) else {"items": data}
-
 
 
 def _parse_currency(payload: dict[str, Any] | None) -> SolArkCurrency | None:
@@ -68,7 +66,6 @@ def _parse_currency(payload: dict[str, Any] | None) -> SolArkCurrency | None:
     )
 
 
-
 def _parse_timezone(payload: dict[str, Any] | None) -> SolArkTimezone | None:
     if not payload:
         return None
@@ -80,7 +77,6 @@ def _parse_timezone(payload: dict[str, Any] | None) -> SolArkTimezone | None:
     )
 
 
-
 def _parse_point(payload: dict[str, Any]) -> SolArkPoint:
     return SolArkPoint(
         time=payload.get("time", ""),
@@ -89,15 +85,10 @@ def _parse_point(payload: dict[str, Any]) -> SolArkPoint:
     )
 
 
-
 def parse_token_response(payload: dict[str, Any]) -> SolArkToken:
     data = _unwrap(payload)
     expires_in = data.get("expires_in")
-    expires_at = (
-        datetime.now(UTC) + timedelta(seconds=expires_in)
-        if expires_in is not None
-        else None
-    )
+    expires_at = datetime.now(UTC) + timedelta(seconds=expires_in) if expires_in is not None else None
     return SolArkToken(
         access_token=data["access_token"],
         refresh_token=data.get("refresh_token"),
@@ -107,7 +98,6 @@ def parse_token_response(payload: dict[str, Any]) -> SolArkToken:
         expires_at=expires_at,
         raw=payload,
     )
-
 
 
 def parse_user_response(payload: dict[str, Any]) -> SolArkUser:
@@ -129,7 +119,6 @@ def parse_user_response(payload: dict[str, Any]) -> SolArkUser:
     )
 
 
-
 def parse_realtime_response(payload: dict[str, Any]) -> SolArkRealtime:
     data = _unwrap(payload)
     return SolArkRealtime(
@@ -145,7 +134,6 @@ def parse_realtime_response(payload: dict[str, Any]) -> SolArkRealtime:
         total_power=_parse_float(data.get("totalPower")),
         raw=payload,
     )
-
 
 
 def parse_plant_response(payload: dict[str, Any]) -> SolArkPlant:
@@ -182,7 +170,6 @@ def parse_plant_response(payload: dict[str, Any]) -> SolArkPlant:
     )
 
 
-
 def parse_plant_power_response(payload: dict[str, Any], *, collection_key: str | None = None) -> SolArkSeriesCollection:
     data = _unwrap(payload)
     if collection_key:
@@ -201,7 +188,6 @@ def parse_plant_power_response(payload: dict[str, Any], *, collection_key: str |
         records=[_parse_point(record) for record in data.get("records") or []],
         raw=payload,
     )
-
 
 
 def parse_energy_flow_response(payload: dict[str, Any]) -> SolArkEnergyFlow:
@@ -231,7 +217,6 @@ def parse_energy_flow_response(payload: dict[str, Any]) -> SolArkEnergyFlow:
     )
 
 
-
 def parse_generation_use_response(payload: dict[str, Any]) -> SolArkGenerationUse:
     data = _unwrap(payload)
     return SolArkGenerationUse(
@@ -243,7 +228,6 @@ def parse_generation_use_response(payload: dict[str, Any]) -> SolArkGenerationUs
     )
 
 
-
 def parse_plant_contacts_response(payload: dict[str, Any]) -> SolArkPlantContacts:
     data = _unwrap(payload)
     return SolArkPlantContacts(
@@ -252,7 +236,6 @@ def parse_plant_contacts_response(payload: dict[str, Any]) -> SolArkPlantContact
         updated_at=_parse_datetime(data.get("updateAt")),
         raw=payload,
     )
-
 
 
 def parse_plants_map_response(payload: dict[str, Any]) -> list[SolArkPlantMapPoint]:
@@ -269,11 +252,9 @@ def parse_plants_map_response(payload: dict[str, Any]) -> list[SolArkPlantMapPoi
     ]
 
 
-
 def parse_version_response(payload: dict[str, Any]) -> SolArkVersionInfo:
     data = _unwrap(payload)
     return SolArkVersionInfo(version=data.get("version"), raw=payload)
-
 
 
 def parse_device_count_response(payload: dict[str, Any]) -> SolArkDeviceCount:

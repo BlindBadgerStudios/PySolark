@@ -1,4 +1,5 @@
 """Shared test fixtures for PySolark tests."""
+
 from __future__ import annotations
 
 TEST_USER_ID = 10101

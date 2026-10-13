@@ -40,10 +40,10 @@ logger = logging.getLogger(__name__)
 def _default_date(period: str) -> str:
     today = date.today()
     if period == "day":
-        return today.isoformat()          # "2026-06-17"
+        return today.isoformat()  # "2026-06-17"
     if period == "month":
-        return today.strftime("%Y-%m")    # "2026-06"
-    return str(today.year)               # "2026" for year/total
+        return today.strftime("%Y-%m")  # "2026-06"
+    return str(today.year)  # "2026" for year/total
 
 
 class SolArkClient:
@@ -106,11 +106,17 @@ class SolArkClient:
     def get_plant_realtime(self, plant_id: int) -> SolArkRealtime:
         return parse_realtime_response(self.raw_get(f"/api/v1/plant/{plant_id}/realtime"))
 
-    def get_plant_power(self, plant_id: int, *, period: Literal["day", "month", "year", "total"], date: str | None = None) -> SolArkSeriesCollection:
+    def get_plant_power(
+        self, plant_id: int, *, period: Literal["day", "month", "year", "total"], date: str | None = None
+    ) -> SolArkSeriesCollection:
         resolved = date or _default_date(period)
-        return parse_plant_power_response(self.raw_get(f"/api/v1/plant/{plant_id}/power/{period}", params={"date": resolved}))
+        return parse_plant_power_response(
+            self.raw_get(f"/api/v1/plant/{plant_id}/power/{period}", params={"date": resolved})
+        )
 
-    def get_plant_energy(self, plant_id: int, *, period: Literal["day", "month", "year", "total"], date: str | None = None) -> SolArkSeriesCollection:
+    def get_plant_energy(
+        self, plant_id: int, *, period: Literal["day", "month", "year", "total"], date: str | None = None
+    ) -> SolArkSeriesCollection:
         resolved = date or _default_date(period)
         return parse_plant_power_response(
             self.raw_get(f"/api/v1/plant/energy/{plant_id}/{period}", params={"date": resolved}),
@@ -135,6 +141,7 @@ class SolArkClient:
         code = payload.get("code", 0)
         if code != 0:
             from .exceptions import SolArkAPIError
+
             raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
         return parse_plant_contacts_response(payload)
 
@@ -172,5 +179,6 @@ class SolArkClient:
         code = payload.get("code", 0)
         if code != 0:
             from .exceptions import SolArkAPIError
+
             raise SolArkAPIError(code, payload.get("msg", "Unknown error"), payload)
         return payload
