@@ -7,13 +7,15 @@ from typing import Any
 
 @dataclass
 class SolArkToken:
-    access_token: str
-    refresh_token: str | None
+    # Token values and the raw payload (which repeats them) are excluded from repr()
+    # so that logging or printing a token never leaks live credentials.
+    access_token: str = field(repr=False)
+    refresh_token: str | None = field(repr=False)
     expires_in: int | None
     scope: str | None
     token_type: str | None
     expires_at: datetime | None = None
-    raw: dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass

@@ -58,10 +58,14 @@ class SolArkClient:
         timeout: int = 30,
     ) -> None:
         self.username = username
-        self.password = password
+        self._password = password
         self.timeout = timeout
         self.session = session or Session()
         self.token: SolArkToken | None = None
+
+    def __repr__(self) -> str:
+        authenticated = self.token is not None
+        return f"{type(self).__name__}(username={self.username!r}, password='***', authenticated={authenticated})"
 
     def __enter__(self) -> Self:
         return self
@@ -90,7 +94,7 @@ class SolArkClient:
             json={
                 "grant_type": "password",
                 "username": self.username,
-                "password": self.password,
+                "password": self._password,
             },
         )
         self.token = parse_token_response(response.json())

@@ -177,3 +177,16 @@ def test_raw_get_allows_exploration_of_undocumented_endpoints():
 
     with pytest.raises(SolArkAPIError):
         client.raw_get("/api/v1/inverter")
+
+
+def test_token_and_client_repr_redact_secrets():
+    session = FakeSession()
+    client = SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session)
+    token = client.login()
+
+    assert token.access_token not in repr(token)
+    assert token.refresh_token not in repr(token)
+    assert "raw=" not in repr(token)
+    assert TEST_PASSWORD not in repr(client)
+    assert token.access_token not in repr(client)
+    assert not hasattr(client, "password")
