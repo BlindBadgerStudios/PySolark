@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+import time
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Any, Literal, Self
 
-from requests import Session
+from requests import RequestException, Session
 
 from .exceptions import SolArkAPIError, SolArkTokenExpiredError
 from .models import (
@@ -46,6 +48,9 @@ def _default_date(period: str) -> str:
     return str(today.year)  # "2026" for year/total
 
 
+RETRYABLE_STATUS = frozenset({429, 502, 503, 504})
+
+
 def _check_envelope(payload: Any) -> dict[str, Any]:
     """Raise SolArkAPIError for non-dict payloads or a non-zero envelope ``code``."""
     if not isinstance(payload, dict):
@@ -66,10 +71,18 @@ class SolArkClient:
         *,
         session: Session | None = None,
         timeout: int = 30,
+        max_retries: int = 3,
+        backoff_factor: float = 1.0,
+        max_backoff: float = 60.0,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.username = username
         self._password = password
         self.timeout = timeout
+        self.max_retries = max_retries
+        self.backoff_factor = backoff_factor
+        self.max_backoff = max_backoff
+        self._sleep = sleep
         self.session = session or Session()
         self.token: SolArkToken | None = None
 
@@ -90,11 +103,42 @@ class SolArkClient:
             raise SolArkTokenExpiredError()
         return {"Authorization": f"Bearer {self.token.access_token}", "Accept": "application/json"}
 
+    def _retry_delay(self, attempt: int, response: Any = None) -> float:
+        if response is not None:
+            retry_after = (getattr(response, "headers", None) or {}).get("Retry-After")
+            if retry_after is not None:
+                try:
+                    return min(max(float(retry_after), 0.0), self.max_backoff)
+                except ValueError:
+                    pass
+        return min(self.backoff_factor * (2**attempt), self.max_backoff)
+
     def _request(self, method: str, path: str, **kwargs: Any):
-        logger.debug("%s %s", method, path)
-        response = self.session.request(method, f"{self.api_root}{path}", timeout=self.timeout, **kwargs)
-        response.raise_for_status()
-        return response
+        """Send a request. Only idempotent GETs are retried (429/5xx/connection errors).
+
+        POSTs, in particular ``POST /oauth/token``, are never retried: a retried login can
+        create extra sessions on the account.
+        """
+        url = f"{self.api_root}{path}"
+        retries = self.max_retries if method.upper() == "GET" else 0
+        attempt = 0
+        while True:
+            logger.debug("%s %s attempt=%d", method, path, attempt + 1)
+            try:
+                response = self.session.request(method, url, timeout=self.timeout, **kwargs)
+            except RequestException:
+                if attempt >= retries:
+                    raise
+                delay = self._retry_delay(attempt)
+                logger.warning("%s %s failed with a connection error; retrying in %.1fs", method, path, delay)
+            else:
+                if response.status_code not in RETRYABLE_STATUS or attempt >= retries:
+                    response.raise_for_status()
+                    return response
+                delay = self._retry_delay(attempt, response)
+                logger.warning("%s %s returned HTTP %d; retrying in %.1fs", method, path, response.status_code, delay)
+            self._sleep(delay)
+            attempt += 1
 
     def login(self) -> SolArkToken:
         logger.debug("POST /oauth/token user=%s", self.username)

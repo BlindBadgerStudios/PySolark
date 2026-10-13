@@ -220,3 +220,73 @@ def test_raw_get_rejects_non_dict_payload():
     client.login()
     with pytest.raises(SolArkAPIError):
         client.raw_get("/api/v1/user")
+
+
+class _ScriptedSession(FakeSession):
+    """Returns queued responses (or raises queued exceptions) in order."""
+
+    def __init__(self, responses):
+        super().__init__()
+        self.responses = list(responses)
+
+    def request(self, method, url, **kwargs):
+        self.calls.append((method, url, kwargs))
+        item = self.responses.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+def _client(session, sleeps):
+    return SolArkClient(username=TEST_USERNAME, password=TEST_PASSWORD, session=session, sleep=sleeps.append)
+
+
+def test_login_post_is_never_retried():
+    sleeps = []
+    session = _ScriptedSession([FakeResponse(status_code=503), FakeResponse(json_data=TOKEN_JSON)])
+    client = _client(session, sleeps)
+    with pytest.raises(RuntimeError):
+        client.login()
+    assert len(session.calls) == 1
+    assert sleeps == []
+
+
+def test_get_retries_429_honouring_retry_after():
+    sleeps = []
+    session = _ScriptedSession(
+        [
+            FakeResponse(json_data=TOKEN_JSON),
+            FakeResponse(status_code=429, headers={"Retry-After": "7"}),
+            FakeResponse(status_code=502),
+            FakeResponse(json_data=USER_JSON),
+        ]
+    )
+    client = _client(session, sleeps)
+    client.login()
+    user = client.get_current_user()
+    assert user.user_id == TEST_USER_ID
+    assert sleeps == [7.0, 2.0]
+
+
+def test_get_retries_connection_errors_then_gives_up():
+    import requests
+
+    sleeps = []
+    session = _ScriptedSession(
+        [FakeResponse(json_data=TOKEN_JSON)] + [requests.ConnectionError("boom") for _ in range(4)]
+    )
+    client = _client(session, sleeps)
+    client.login()
+    with pytest.raises(requests.ConnectionError):
+        client.get_current_user()
+    assert sleeps == [1.0, 2.0, 4.0]
+
+
+def test_get_does_not_retry_client_errors():
+    sleeps = []
+    session = _ScriptedSession([FakeResponse(json_data=TOKEN_JSON), FakeResponse(status_code=404)])
+    client = _client(session, sleeps)
+    client.login()
+    with pytest.raises(RuntimeError):
+        client.get_current_user()
+    assert sleeps == []
