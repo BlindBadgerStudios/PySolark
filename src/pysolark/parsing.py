@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .exceptions import SolArkAPIError
@@ -31,7 +31,7 @@ def _parse_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return datetime.fromisoformat(value)
     except (ValueError, AttributeError):
         logger.warning("Could not parse datetime value: %r", value)
         return None
@@ -94,7 +94,7 @@ def parse_token_response(payload: dict[str, Any]) -> SolArkToken:
     data = _unwrap(payload)
     expires_in = data.get("expires_in")
     expires_at = (
-        datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        datetime.now(UTC) + timedelta(seconds=expires_in)
         if expires_in is not None
         else None
     )
